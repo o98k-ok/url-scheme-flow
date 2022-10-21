@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -38,7 +37,7 @@ func main() {
 	})
 	cli.Bind("inc", func(s []string) {
 		if len(s) <= 0 {
-			alfred.ErrItems("param error", errors.New("size = 0")).Show()
+			alfred.InputErrItems("param size error")
 			return
 		}
 
