@@ -9,7 +9,6 @@ import (
 	"github.com/o98k-ok/lazy/v2/collection"
 	"github.com/o98k-ok/vscode-remote-flow/command"
 	"github.com/o98k-ok/vscode-remote-flow/config"
-	"github.com/o98k-ok/vscode-remote-flow/ws"
 )
 
 func main() {
@@ -24,14 +23,20 @@ func main() {
 		}
 
 		msg := alfred.NewItems()
-		for _, c := range cmds {
-			msg.Append(alfred.NewItem(c.Name, fmt.Sprintf("has been used %d", c.Count), c.Name))
+		for k, c := range cmds {
+			title := c.Name
+			subtitle := fmt.Sprintf("已经使用%d次 [%s]", c.Count, k)
+
+			item := alfred.NewItem(title, subtitle, k)
+			item.Icon = &alfred.Icon{}
+			item.WithIcon(fmt.Sprintf("./icons/%s.png", c.App))
+			msg.Append(item)
 		}
 
 		sort.Slice(msg.Items, func(i, j int) bool {
 			var left, right int
-			fmt.Sscanf(msg.Items[i].SubTitle, "has been used %d", &left)
-			fmt.Sscanf(msg.Items[j].SubTitle, "has been used %d", &right)
+			fmt.Sscanf(msg.Items[i].SubTitle, "已经使用%d次", &left)
+			fmt.Sscanf(msg.Items[j].SubTitle, "已经使用%d次", &right)
 			return left > right
 		})
 		msg.Show()
@@ -42,12 +47,12 @@ func main() {
 			return
 		}
 
-		websocket, err := ws.NewCommandSocket(cfg.WsConfig)
-		if err != nil {
-			alfred.ErrItems("init websocket failed", err).Show()
-			return
-		}
-		defer websocket.Close()
+		// websocket, err := ws.NewCommandSocket(cfg.WsConfig)
+		// if err != nil {
+		// 	alfred.ErrItems("init websocket failed", err).Show()
+		// 	return
+		// }
+		// defer websocket.Close()
 
 		cmd, ok := cfg.CmdConfig[s[0]]
 		if !ok {
@@ -56,7 +61,8 @@ func main() {
 		}
 
 		cmd.IncCount()
-		websocket.Do(cmd.Command)
+		// websocket.Do(cmd.Command)
+		fmt.Println(fmt.Sprintf(cmd.Format, cmd.App, cmd.Command))
 		cfg.Save()
 	})
 	cli.Bind("add", func(s []string) {

@@ -11,6 +11,8 @@ type Command struct {
 	Command string
 	Count   uint64
 	Direct  bool
+	App     string
+	Format  string
 }
 
 func NewCommand(name, cmd string) *Command {
