@@ -7,6 +7,7 @@ import (
 
 	"github.com/o98k-ok/lazy/v2/alfred"
 	"github.com/o98k-ok/lazy/v2/collection"
+	"github.com/o98k-ok/vscode-remote-flow/command"
 	"github.com/o98k-ok/vscode-remote-flow/config"
 	"github.com/o98k-ok/vscode-remote-flow/ws"
 )
@@ -37,7 +38,7 @@ func main() {
 	})
 	cli.Bind("inc", func(s []string) {
 		if len(s) <= 0 {
-			alfred.InputErrItems("param size error")
+			alfred.InputErrItems("param size error").Show()
 			return
 		}
 
@@ -56,6 +57,18 @@ func main() {
 
 		cmd.IncCount()
 		websocket.Do(cmd.Command)
+		cfg.Save()
+	})
+	cli.Bind("add", func(s []string) {
+		if len(s) < 2 {
+			alfred.InputErrItems("input params size < 2").Show()
+			return
+		}
+
+		name, cmdline := s[0], s[1]
+		cmd := command.NewCommand(name, cmdline)
+		cfg.CmdConfig[name] = cmd
+
 		cfg.Save()
 	})
 
