@@ -24,12 +24,12 @@ func main() {
 
 		msg := alfred.NewItems()
 		for k, c := range cmds {
-			title := c.Name
-			subtitle := fmt.Sprintf("已经使用%d次 [%s]", c.Count, k)
+			title := c.GetCommand().Name
+			subtitle := fmt.Sprintf("已经使用%d次 [%s]", c.GetCommand().Count, k)
 
 			item := alfred.NewItem(title, subtitle, k)
 			item.Icon = &alfred.Icon{}
-			item.WithIcon(fmt.Sprintf("./icons/%s.png", c.App))
+			item.WithIcon(fmt.Sprintf("./icons/%s.png", c.GetCommand().App))
 			msg.Append(item)
 		}
 
@@ -47,13 +47,6 @@ func main() {
 			return
 		}
 
-		// websocket, err := ws.NewCommandSocket(cfg.WsConfig)
-		// if err != nil {
-		// 	alfred.ErrItems("init websocket failed", err).Show()
-		// 	return
-		// }
-		// defer websocket.Close()
-
 		cmd, ok := cfg.CmdConfig[s[0]]
 		if !ok {
 			alfred.EmptyItems().Show()
@@ -61,18 +54,17 @@ func main() {
 		}
 
 		cmd.IncCount()
-		// websocket.Do(cmd.Command)
-		fmt.Println(fmt.Sprintf(cmd.Format, cmd.App, cmd.Command))
+		fmt.Println(cmd.GenURI())
 		cfg.Save()
 	})
 	cli.Bind("add", func(s []string) {
-		if len(s) < 2 {
+		if len(s) < 4 {
 			alfred.InputErrItems("input params size < 2").Show()
 			return
 		}
 
-		name, cmdline := s[0], s[1]
-		cmd := command.NewCommand(name, cmdline)
+		key, name, app, cmdline := s[0], s[1], s[2], s[3]
+		cmd := command.NewCommander(command.NewCommand(app, key, cmdline, cfg.ObsidianVault))
 		cfg.CmdConfig[name] = cmd
 
 		cfg.Save()

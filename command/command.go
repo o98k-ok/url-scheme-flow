@@ -1,9 +1,10 @@
 package command
 
-import (
-	"encoding/json"
-	"io"
-)
+type Commander interface {
+	GenURI() string
+	IncCount()
+	GetCommand() *Command
+}
 
 type Command struct {
 	Name    string
@@ -15,23 +16,18 @@ type Command struct {
 	Format  string
 }
 
-func NewCommand(name, cmd string) *Command {
-	return &Command{
-		Name:    name,
-		Command: cmd,
-	}
-}
-
-func GetCommandsFrom(reader io.Reader) map[string]*Command {
-	var config map[string]*Command
-	err := json.NewDecoder(reader).Decode(&config)
-	if err != nil {
-		return map[string]*Command{}
-	}
-
-	return config
-}
-
 func (c *Command) IncCount() {
 	c.Count++
 }
+
+func (c *Command) GetCommand() *Command {
+	return c
+}
+
+var (
+	DEFAULT_VSCODE_FORMAT   = "%s://ionutvmi.vscode-commands-executor/runCommands?data=[{\"id\": \"%s\"}]"
+	DEFAULT_OBSIDIAN_FORMAT = "%s://advanced-uri?vault=%s&commandid=%s"
+
+	VSCODE   = "vscode"
+	OBSIDIAN = "obsidian"
+)

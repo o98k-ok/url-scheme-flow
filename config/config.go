@@ -17,33 +17,37 @@ const (
 
 	CMDJsonPath     = "command_path"
 	DefaultJsonPath = "config.json"
+
+	ObsidianVault = "obsidian_vault"
 )
 
 var (
-	DefaultConfigCommand = map[string]*command.Command{
-		"open_terminal":    command.NewCommand("open_terminal", "workbench.action.terminal.toggleTerminal"),
-		"open_main_folder": command.NewCommand("open_main_folder", "workbench.explorer.fileView.focus"),
-		"extension_list":   command.NewCommand("extension_list", "workbench.extensions.action.installExtensions"),
-		"open_notes":       command.NewCommand("open_notes", "workbench.view.extension.vscode-notes"),
-		"list_projects":    command.NewCommand("list_projects", "projectManager.listProjects"),
-		"select_themes":    command.NewCommand("select_themes", "workbench.action.selectTheme"),
-		"open_shortcuts":   command.NewCommand("open_shortcuts", "workbench.action.openGlobalKeybindings"),
-		"open_settings":    command.NewCommand("open_settings", "workbench.action.openSettings"),
-		"command_window":   command.NewCommand("command_window", "workbench.action.showCommands"),
-		"view_markdown":    command.NewCommand("view_markdown", "markdown.showPreview"),
-		"close_right":      command.NewCommand("close_right", "workbench.action.closeEditorsToTheRight"),
+	DefaultConfigCommand = map[string]command.Commander{
+		"open_terminal":    command.NewCommander(command.NewCommand(command.VSCODE, "open_terminal", "workbench.action.terminal.toggleTerminal", "")),
+		"open_main_folder": command.NewCommander(command.NewCommand(command.VSCODE, "open_main_folder", "workbench.explorer.fileView.focus", "")),
+		"extension_list":   command.NewCommander(command.NewCommand(command.VSCODE, "extension_list", "workbench.extensions.action.installExtensions", "")),
+		"open_notes":       command.NewCommander(command.NewCommand(command.VSCODE, "open_notes", "workbench.view.extension.vscode-notes", "")),
+		"list_projects":    command.NewCommander(command.NewCommand(command.VSCODE, "list_projects", "projectManager.listProjects", "")),
+		"select_themes":    command.NewCommander(command.NewCommand(command.VSCODE, "select_themes", "workbench.action.selectTheme", "")),
+		"open_shortcuts":   command.NewCommander(command.NewCommand(command.VSCODE, "open_shortcuts", "workbench.action.openGlobalKeybindings", "")),
+		"open_settings":    command.NewCommander(command.NewCommand(command.VSCODE, "open_settings", "workbench.action.openSettings", "")),
+		"command_window":   command.NewCommander(command.NewCommand(command.VSCODE, "command_window", "workbench.action.showCommands", "")),
+		"view_markdown":    command.NewCommander(command.NewCommand(command.VSCODE, "view_markdown", "markdown.showPreview", "")),
+		"close_right":      command.NewCommander(command.NewCommand(command.VSCODE, "close_right", "workbench.action.closeEditorsToTheRight", "")),
 	}
 	DefaultConfig = Config{
 		DefaultWebSocket,
 		DefaultJsonPath,
+		command.OBSIDIAN,
 		DefaultConfigCommand,
 	}
 )
 
 type Config struct {
-	WsConfig  string
-	JsonFile  string
-	CmdConfig map[string]*command.Command
+	WsConfig      string
+	JsonFile      string
+	ObsidianVault string
+	CmdConfig     map[string]command.Commander
 }
 
 func NewConfig() *Config {
@@ -58,6 +62,11 @@ func NewConfig() *Config {
 		file, ok := envs[CMDJsonPath]
 		if ok && len(file) != 0 {
 			config.JsonFile = file
+		}
+
+		vault, ok := envs[ObsidianVault]
+		if ok && len(vault) != 0 {
+			config.ObsidianVault = vault
 		}
 	}
 
@@ -80,7 +89,7 @@ func (c *Config) IncCount(name string) {
 	if !ok {
 		return
 	}
-	v.Count++
+	v.IncCount()
 }
 
 func (c *Config) Save() error {
