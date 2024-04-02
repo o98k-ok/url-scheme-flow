@@ -3,75 +3,62 @@ package main
 import (
 	"fmt"
 	"os"
-	"sort"
+	"strings"
 
 	"github.com/o98k-ok/lazy/v2/alfred"
-	"github.com/o98k-ok/lazy/v2/collection"
 	"github.com/o98k-ok/vscode-remote-flow/command"
-	"github.com/o98k-ok/vscode-remote-flow/config"
+)
+
+const (
+	obsidian_vault = "global_obsidian_vault"
 )
 
 func main() {
-	// init something
-	cfg := config.NewConfig()
+	envs, err := alfred.FlowVariables()
+	if err != nil {
+		alfred.InputErrItems("read env failed " + err.Error()).Show()
+		return
+	}
+
+	// try get obsidian vault
+	obsidianVault := envs[obsidian_vault]
+
+	var commands []command.Commander
+	for key, env := range envs {
+		switch {
+		case strings.HasPrefix(key, command.OB_CMD) && len(obsidianVault) != 0:
+			commands = append(commands, command.NewObsidianCMD(env, obsidianVault, map[string]string{env: key}))
+		case strings.HasPrefix(key, command.VS_CMD):
+			commands = append(commands, command.NewVscodeCMD(env, map[string]string{env: key}))
+		case strings.HasPrefix(key, command.LARK_CHAT_CMD):
+			commands = append(commands, command.NewLarkChatCMD(env, map[string]string{env: key}))
+		case strings.HasPrefix(key, command.SHELL_SCRIPT_CMD):
+			commands = append(commands, command.NewShellCMD(env, map[string]string{env: key}))
+		case strings.HasPrefix(key, command.APPLE_CMD):
+			commands = append(commands, command.NewAppleCMD(env, map[string]string{env: key}))
+		default:
+		}
+	}
 
 	cli := alfred.NewApp("vscode util toools")
 	cli.Bind("get", func(s []string) {
-		cmds := cfg.CmdConfig
-		for _, key := range s {
-			cmds = collection.SearchMap(cmds, key)
-		}
-
 		msg := alfred.NewItems()
-		for k, c := range cmds {
-			title := c.GetCommand().Name
-			subtitle := fmt.Sprintf("已经使用%d次 [%s]", c.GetCommand().Count, k)
 
-			item := alfred.NewItem(title, subtitle, k)
+		for _, cmd := range commands {
+			key, name, ok := cmd.Filtered(s)
+			if !ok {
+				continue
+			}
+
+			item := alfred.NewItem(name, fmt.Sprintf("✌️✌️ %s", key), cmd.GenURI())
 			item.Icon = &alfred.Icon{}
-			item.WithIcon(fmt.Sprintf("./icons/%s.png", c.GetCommand().App))
+			item.WithIcon(fmt.Sprintf("./icons/%s.png", cmd.IconApp()))
 			msg.Append(item)
 		}
 
-		sort.Slice(msg.Items, func(i, j int) bool {
-			var left, right int
-			fmt.Sscanf(msg.Items[i].SubTitle, "已经使用%d次", &left)
-			fmt.Sscanf(msg.Items[j].SubTitle, "已经使用%d次", &right)
-			return left > right
-		})
 		msg.Show()
 	})
-	cli.Bind("inc", func(s []string) {
-		if len(s) <= 0 {
-			alfred.InputErrItems("param size error").Show()
-			return
-		}
-
-		cmd, ok := cfg.CmdConfig[s[0]]
-		if !ok {
-			alfred.EmptyItems().Show()
-			return
-		}
-
-		cmd.IncCount()
-		fmt.Println(cmd.GenURI())
-		cfg.Save()
-	})
-	cli.Bind("add", func(s []string) {
-		if len(s) < 4 {
-			alfred.InputErrItems("input params size < 2").Show()
-			return
-		}
-
-		key, name, app, cmdline := s[0], s[1], s[2], s[3]
-		cmd := command.NewCommander(command.NewCommand(app, key, cmdline, cfg.ObsidianVault))
-		cfg.CmdConfig[name] = cmd
-
-		cfg.Save()
-	})
-
-	err := cli.Run(os.Args)
-	if err != nil {
+	if err := cli.Run(os.Args); err != nil {
 		alfred.ErrItems("run failed", err).Show()
 		return
 	}
