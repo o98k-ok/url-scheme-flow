@@ -37,7 +37,8 @@ func (oc *LarkChatCMD) IconApp() string {
 func (oc *LarkChatCMD) Filtered(keys []string) (string, string, bool) {
 	for k, v := range oc.attrs {
 		for _, query := range keys {
-			if !strings.Contains(k, query) && !strings.Contains(v, query) {
+			lowk, lowquery := strings.ToLower(k), strings.ToLower(query)
+			if !strings.Contains(lowk, lowquery) && !strings.Contains(v, lowquery) {
 				return "", "", false
 			}
 		}
