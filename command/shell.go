@@ -45,3 +45,10 @@ func (oc *ShellCMD) Filtered(keys []string) (string, string, bool) {
 	}
 	return "", "", false
 }
+
+func (oc *ShellCMD) SetArgs(v string) {
+}
+
+func (oc *ShellCMD) Title() (string, string) {
+	return oc.attrs[oc.script], oc.script
+}

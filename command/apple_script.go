@@ -45,3 +45,10 @@ func (oc *AppleCMD) Filtered(keys []string) (string, string, bool) {
 	}
 	return "", "", false
 }
+
+func (oc *AppleCMD) SetArgs(v string) {
+}
+
+func (oc *AppleCMD) Title() (string, string) {
+	return oc.attrs[oc.script], oc.script
+}

@@ -46,3 +46,10 @@ func (oc *LarkChatCMD) Filtered(keys []string) (string, string, bool) {
 	}
 	return "", "", false
 }
+
+func (oc *LarkChatCMD) SetArgs(v string) {
+}
+
+func (oc *LarkChatCMD) Title() (string, string) {
+	return oc.attrs[oc.commandID], oc.commandID
+}

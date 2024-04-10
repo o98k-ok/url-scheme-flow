@@ -1,12 +1,13 @@
 package command
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
 
 const (
-	DEFAULT_VSCODE_FORMAT = "%s://ionutvmi.vscode-commands-executor/runCommands?data=[{\"id\": \"%s\"}]"
+	DEFAULT_VSCODE_FORMAT = "%s://ionutvmi.vscode-commands-executor/runCommands?data=[%s]"
 	APP_VSCODE            = "vscode"
 	VS_CMD                = "vscode_cmd_"
 )
@@ -14,8 +15,14 @@ const (
 type VscodeCMD struct {
 	format    string
 	commandID string
+	args      string
 
 	attrs map[string]string
+}
+
+type command struct {
+	ID   string `json:"id"`
+	Args string `json:"args,omitempty"`
 }
 
 func NewVscodeCMD(commandID string, attrs map[string]string) *VscodeCMD {
@@ -28,7 +35,8 @@ func NewVscodeCMD(commandID string, attrs map[string]string) *VscodeCMD {
 }
 
 func (vc *VscodeCMD) GenURI() string {
-	return fmt.Sprintf(vc.format, APP_VSCODE, vc.commandID)
+	d, _ := json.Marshal(command{ID: vc.commandID, Args: vc.args})
+	return fmt.Sprintf(vc.format, APP_VSCODE, string(d))
 }
 
 func (vc *VscodeCMD) IconApp() string {
@@ -46,4 +54,12 @@ func (vc *VscodeCMD) Filtered(keys []string) (string, string, bool) {
 		return k, v, true
 	}
 	return "", "", false
+}
+
+func (vc *VscodeCMD) SetArgs(v string) {
+	vc.args = v
+}
+
+func (oc *VscodeCMD) Title() (string, string) {
+	return oc.attrs[oc.commandID], oc.commandID
 }
