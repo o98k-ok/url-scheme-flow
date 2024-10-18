@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/mozillazg/go-pinyin"
 	"github.com/o98k-ok/lazy/v2/alfred"
 )
 
@@ -49,6 +50,10 @@ func readFileToMarkdown(file string) string {
 		return ""
 	}
 	return string(data)
+}
+
+func toPinyin(s string) string {
+	return strings.Join(pinyin.LazyConvert(s, nil), "")
 }
 
 func main() {
@@ -104,7 +109,9 @@ func main() {
 		home, _ := os.Getwd()
 		for k, v := range all {
 			v = strings.ReplaceAll(v, "{{HOME}}", home)
-			if strings.Contains(k, content) || strings.Contains(v, content) {
+			if strings.Contains(v, content) ||
+				strings.Contains(toPinyin(k), content) ||
+				strings.Contains(k, content) {
 				filtered[k] = v
 			}
 		}
