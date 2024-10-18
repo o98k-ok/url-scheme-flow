@@ -1,102 +1,173 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
+	"os/exec"
+	"sort"
 	"strings"
 
-	"github.com/duke-git/lancet/v2/slice"
-	"github.com/duke-git/lancet/v2/strutil"
 	"github.com/o98k-ok/lazy/v2/alfred"
-	"github.com/o98k-ok/vscode-remote-flow/command"
 )
 
-const (
-	obsidian_vault = "global_obsidian_vault"
-	default_option = "global_default_choices"
-	orderID        = "order="
-)
+var FILE = "./config.json"
 
-func appendCommand(commands []command.Commander, key string, env string, obsidianVault string) []command.Commander {
-	switch {
-	case strings.HasPrefix(key, command.OB_CMD) && len(obsidianVault) != 0:
-		commands = append(commands, command.NewObsidianCMD(env, obsidianVault, map[string]string{env: key}))
-	case strings.HasPrefix(key, command.VS_CMD):
-		commands = append(commands, command.NewVscodeCMD(env, map[string]string{env: key}))
-	case strings.HasPrefix(key, command.LARK_CHAT_CMD):
-		commands = append(commands, command.NewLarkChatCMD(env, map[string]string{env: key}))
-	case strings.HasPrefix(key, command.SHELL_SCRIPT_CMD):
-		commands = append(commands, command.NewShellCMD(env, map[string]string{env: key}))
-	case strings.HasPrefix(key, command.APPLE_CMD):
-		commands = append(commands, command.NewAppleCMD(env, map[string]string{env: key}))
-	default:
+func readFile(file string) map[string]string {
+	content, err := os.ReadFile(file)
+	if err != nil {
+		alfred.Log("raw %v", err.Error())
+		return nil
 	}
-	return commands
+
+	var result map[string]string
+	err = json.Unmarshal(content, &result)
+	if err != nil {
+		alfred.Log("raw %v", err.Error())
+		return nil
+	}
+	return result
+}
+
+func readFileToMarkdown(file string) string {
+	result := readFile(file)
+	arr := []string{}
+	for k, v := range result {
+		arr = append(arr, fmt.Sprintf("* %s: %s", k, v))
+	}
+
+	sort.Slice(arr, func(i, j int) bool {
+		return arr[i] < arr[j]
+	})
+	response := map[string]string{
+		"response": strings.Join(arr, "\n"),
+	}
+	data, err := json.Marshal(response)
+	if err != nil {
+		alfred.Log("raw %v", err.Error())
+		return ""
+	}
+	return string(data)
 }
 
 func main() {
-	envs, err := alfred.FlowVariables()
-	if err != nil {
-		alfred.InputErrItems("read env failed " + err.Error()).Show()
-		return
-	}
-
-	// try get obsidian vault
-	obsidianVault := envs[obsidian_vault]
-	var commands []command.Commander
-	for key, env := range envs {
-		commands = appendCommand(commands, key, env, obsidianVault)
-	}
-
-	var optionsCommands []command.Commander
-	choices := envs[default_option]
-	if len(choices) != 0 {
-		for _, c := range strutil.SplitEx(choices, ";", true) {
-			key, env := c, envs[c]
-			optionsCommands = appendCommand(optionsCommands, key, env, obsidianVault)
-		}
-	}
-
-	cli := alfred.NewApp("vscode util toools")
-	cli.Bind("get", func(query []string) {
-		orderParams, params := slice.GroupBy(query, func(_ int, item string) bool { return strings.HasPrefix(item, orderID) })
-
-		msg := alfred.NewItems()
-		for _, cmd := range commands {
-			key, name, ok := cmd.Filtered(params)
-			if !ok {
-				continue
-			}
-
-			item := alfred.NewItem(name, fmt.Sprintf("✌️✌️ %s", key), cmd.GenURI())
-			item.Icon = &alfred.Icon{}
-			item.WithIcon(fmt.Sprintf("./icons/%s.png", cmd.IconApp()))
-			msg.Append(item)
+	app := alfred.NewApp("command pro")
+	app.Bind("edit", func(s []string) {
+		content := os.Args[2]
+		if len(content) == 0 {
+			fmt.Println(readFileToMarkdown(FILE))
+			return
 		}
 
-		// support order options
-		if len(orderParams) != 0 {
-			order, _ := strings.CutPrefix(orderParams[0], orderID)
-			slice.SortBy(msg.Items, func(l *alfred.Item, r *alfred.Item) bool {
-				return !strings.Contains(strings.ToLower(r.Title), order)
-			})
+		_, err := url.Parse(content)
+		if err == nil {
+			fmt.Println(readFileToMarkdown(FILE))
+			return
 		}
 
-		// support bakeup options
-		if len(params) != 0 {
-			for _, cmd := range optionsCommands {
-				cmd.SetArgs(params[0])
-				title, _ := cmd.Title()
-				item := alfred.NewItem(title, fmt.Sprintf("✌️✌️ %s", params[0]), cmd.GenURI())
-				item.Icon = &alfred.Icon{}
-				item.WithIcon(fmt.Sprintf("./icons/%s.png", cmd.IconApp()))
-				msg.Append(item)
-			}
+		fields := strings.SplitN(content, ":", 2)
+		if len(fields) != 2 {
+			alfred.Log("edit %v", "json format invalid")
+			return
 		}
-		msg.Show()
+		key := strings.TrimSpace(fields[0])
+		value := strings.TrimSpace(fields[1])
+		if len(key) == 0 || len(value) == 0 {
+			alfred.Log("edit %v", "key or value is empty")
+			return
+		}
+
+		result := readFile(FILE)
+		result[key] = value
+		data, err := json.Marshal(result)
+		if err != nil {
+			alfred.Log("edit %v", "json format invalid")
+			return
+		}
+
+		file, _ := os.OpenFile(FILE, os.O_WRONLY|os.O_TRUNC, 0o644)
+		defer file.Close()
+		file.Write(data)
+
+		fmt.Println(readFileToMarkdown(FILE))
 	})
-	if err := cli.Run(os.Args); err != nil {
-		alfred.ErrItems("run failed", err).Show()
-		return
+
+	app.Bind("search", func(s []string) {
+		all := readFile(FILE)
+		filtered := map[string]string{}
+		var content string
+		if len(os.Args) > 2 {
+			content = os.Args[2]
+		}
+
+		home, _ := os.Getwd()
+		for k, v := range all {
+			v = strings.ReplaceAll(v, "{{HOME}}", home)
+			if strings.Contains(k, content) || strings.Contains(v, content) {
+				filtered[k] = v
+			}
+		}
+
+		// add sort by app
+		items := alfred.NewItems()
+		items2 := alfred.NewItems()
+		frontmostAppName, _ := getFrontmostAppName()
+		for k, v := range filtered {
+			appName := getAppNameFromLink(v)
+			item := alfred.NewItem(k, v, v).WithIcon("./icons/" + appName + ".png")
+			if appName == frontmostAppName {
+				items.Append(item)
+			} else {
+				items2.Append(item)
+			}
+		}
+
+		items.Items = append(items.Items, items2.Items...)
+		items.Show()
+	})
+
+	app.Run(os.Args)
+}
+
+// getAppNameFromLink 获取链接的应用名
+// 支持的链接格式：
+// bash://xxx?app=iTerm2
+// scpt://xxx?app=iTerm2
+// 其他格式直接返回 scheme
+func getAppNameFromLink(link string) string {
+	u, err := url.Parse(link)
+	if err != nil {
+		return ""
+	}
+
+	switch u.Scheme {
+	case "bash", "scpt":
+		return u.Query().Get("app")
+	default:
+		return u.Scheme
+	}
+}
+
+// getFrontmostAppName 获取前台应用名
+func getFrontmostAppName() (string, error) {
+	cmd := exec.Command("osascript", "-e", `
+		tell application "System Events"
+			set frontmostProcess to first process where it is frontmost
+			set appName to name of frontmostProcess
+			return appName
+		end tell
+	`)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	app := strings.TrimSpace(string(output))
+
+	switch app {
+	case "Google Chrome":
+		return "chrome", nil
+	default:
+		return strings.ToLower(app), nil
 	}
 }
