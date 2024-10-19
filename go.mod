@@ -4,7 +4,7 @@ go 1.22.0
 
 require (
 	github.com/mozillazg/go-pinyin v0.20.0
-	github.com/o98k-ok/lazy v0.2.52
+	github.com/o98k-ok/lazy v0.2.53
 )
 
 require (
